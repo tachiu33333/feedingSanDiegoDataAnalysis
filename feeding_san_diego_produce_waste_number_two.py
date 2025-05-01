@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LinearRegression
@@ -42,72 +43,78 @@ def create_total_df(filepath):
 df_shifts = create_total_df('new_volunteer_data.csv')
 
 #waste log data
-class DocumentData:
-    def __init__(self, dataframe: pd.DataFrame, date: str):
-        self.date = date
-        self.dataframe = dataframe
-        #self.dataframe = 
-
-#    def __repr__(self):
-#        return f"DocumentData(date={self.date}, dataframe_shape={self.dataframe.shape})"
-
-
-
-a= pd.read_excel("2024.06 June Waste Log.xlsx", sheet_name= 2, header=6)
-a = a.iloc[:, :-1]
-
 resource = pd.read_excel("2024.06 June Waste Log.xlsx", sheet_name= 1, header = None)
 resource = resource[0].to_list()
 
+def fix_waste_log(filepath, date, page):
+    waste = pd.read_excel(filepath, sheet_name= page, header=6).iloc[:, :-1]
 
-first_col = a.columns[0]
-a[first_col] = a[first_col].replace('enter >>', np.nan)
+    first_col = waste.columns[0]
+    waste[first_col] = waste[first_col].replace('enter >>', np.nan)
 
-current_resource = None
-resource_col = []
+    current_resource = None
+    resource_col = []
 
-for val in a[first_col]:
-    if val in resource:
-        current_resource = val
-        resource_col.append(pd.NA)
-    else:
-        resource_col.append(current_resource)
-a[first_col] = resource_col
-a = a.dropna(subset=[first_col])
-#a = a.fillna(0)
-
-a = a[['Produce Type', 'Dropped', 'Returns']].groupby('Produce Type').agg({
+    for val in waste[first_col]:
+        if val in resource:
+            current_resource = val
+            resource_col.append(pd.NA)
+        else:
+            resource_col.append(current_resource)
+    waste[first_col] = resource_col
+    waste = waste.dropna(subset=[first_col])
+    waste = waste.iloc[:, :3]
+    waste['Returns'] = pd.to_numeric(waste['Returns'], errors='coerce')
+    waste['Dropped'] = pd.to_numeric(waste['Dropped'], errors='coerce')
+    waste = waste[['Produce Type', 'Dropped', 'Returns']].groupby('Produce Type').agg({
     'Dropped': ['sum', 'count'],
     'Returns': ['sum', 'count']
-})
+    })
 
 
-a = a.reset_index().rename(columns={'index': 'Produce Type'})
-a['Date'] = pd.to_datetime('2024-06-25')
-a = a[['Date', 'Produce Type', 'Dropped', 'Returns']]
+    waste = waste.reset_index().rename(columns={'index': 'Produce Type'})
+    waste['Date'] = pd.to_datetime(date)
+    waste = waste[['Date', 'Produce Type', 'Dropped', 'Returns']]
 
-a.columns = ['Date', 'Produce Type', 'Dropped_sum', 'Dropped_count', 'Returns_sum', 'Returns_count']
+    waste.columns = ['Date', 'Produce Type', 'Dropped_sum', 'Dropped_count', 'Returns_sum', 'Returns_count']
+    return waste
 
-b = pd.merge(df_shifts, a, on='Date', how='left')
+all_data = []
+for date, sheet in [('2024-06-25', 2), ('2024-06-26', 3), ('2024-06-27', 4), ('2024-07-02', 5)]:
+    all_data.append(fix_waste_log("2024.06 June Waste Log.xlsx", date, sheet))
+
+for date, sheet in [('2024-07-03', 0), ('2024-07-05', 1), ('2024-07-06', 2), ('2024-07-08', 3),
+                    ('2024-07-09', 4), ('2024-07-10', 5), ('2024-07-11', 6), ('2024-07-12', 7),
+                    ('2024-07-13', 8), ('2024-07-15', 9), ('2024-07-17', 10), ('2024-07-18', 11),
+                    ('2024-07-19', 12), ('2024-07-20', 13), ('2024-07-22', 14), ('2024-07-23', 15),
+                    ('2024-07-24', 16), ('2024-07-25', 17), ('2024-07-26', 18), ('2024-07-27', 19),
+                    ('2024-07-29', 20), ('2024-07-30', 21), ('2024-07-31', 22)]:
+    all_data.append(fix_waste_log("2024.07 July Produce Waste Log.xlsx", date, sheet))
+combined = pd.concat(all_data, ignore_index=True)
+
+b = pd.merge(df_shifts, combined, on='Date', how='inner')
 print(b)
 
-X = b[['total', 'Produce Type']]
+#X = b[['total', 'Produce Type']]
 
-y = b['Dropped_sum']
+#y = b['Dropped_sum']
 
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('cat', OneHotEncoder(), ['Produce Type']),
-        ('num', SimpleImputer(strategy='constant', fill_value=0), ['total'])
-    ])
+#preprocessor = ColumnTransformer(
+#    transformers=[
+#        ('cat', OneHotEncoder(), ['Produce Type']),
+#        ('num', SimpleImputer(strategy='constant', fill_value=0), ['total'])
+#    ])
 
-model = make_pipeline(preprocessor, RandomForestRegressor())
+#model = make_pipeline(preprocessor, RandomForestRegressor())
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+#X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-model.fit(X_train, y_train)
+#model.fit(X_train, y_train)
 
-y_pred = model.predict(X_test)
+#y_pred = model.predict(X_test)
 
-print("Predictions:", y_pred)
-print("Actual values:", y_test.values)
+#print("Predictions:", y_pred)
+#print("Actual values:", y_test.values)
+
+print(resource)
+
