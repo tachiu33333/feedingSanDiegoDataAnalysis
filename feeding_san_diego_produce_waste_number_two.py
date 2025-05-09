@@ -127,13 +127,11 @@ def set_up_waste_logs():
 full_set = pd.merge(df_shifts, set_up_waste_logs(), on='Date', how='inner')
 print(full_set)
 
-X = full_set[['total', 'Produce Type']]  # Features (total and Produce Type)
-y = full_set[['Dropped_sum', 'Returns_sum']]  # Target variables (Dropped_sum and Returns_sum)
+X = full_set[['total', 'Produce Type']] 
+y = full_set[['Dropped_sum', 'Returns_sum']] 
 
-# Step 2: Split the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Step 3: Preprocessing - one-hot encoding for categorical variable 'Produce Type'
 categorical = ['Produce Type']
 numerical = ['total']
 
@@ -144,19 +142,15 @@ preprocessor = ColumnTransformer(
     ]
 )
 
-# Step 4: Create the model pipeline with MultiOutputRegressor
 model = make_pipeline(
     preprocessor, 
     MultiOutputRegressor(RandomForestRegressor(n_estimators=100, random_state=42))
 )
 
-# Step 5: Train the model
 model.fit(X_train, y_train)
 
-# Step 6: Make predictions on the test set
 y_pred = model.predict(X_test)
 
-# Step 7: Evaluate the model performance for both targets
 #mse_dropped = mean_squared_error(y_test['Dropped_sum'], y_pred[:, 0])
 #mse_returns = mean_squared_error(y_test['Returns_sum'], y_pred[:, 1])
 
